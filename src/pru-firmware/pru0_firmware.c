@@ -1,10 +1,20 @@
 #include "pru_firmware.h"
 #include "pru0_firmware.h"
+#include <soc_AM335x.h>
+#include <gpio_v2.h>
 
 int var_loc[256];
 void wait(int);
 int pwm_val = 0;
 
+
+void init(int val1, unsigned long instance){
+
+GPIOModuleEnable(instance);
+GPIOModuleReset(instance);
+GPIODirModeSet(instance, val1, GPIO_DIR_OUTPUT);
+
+}
 static void send_ret_value(int val)
 {
 	//TODO : handle multiple params?
@@ -102,16 +112,23 @@ void dio_handler(int opcode, u32 inst)
 		int addr = GET_BYTE(inst, 1) + index + 1;
 		val2 = var_loc[addr];
 	}
+	PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+	distribute(val1, GPIO1_INSTANCE_ADDRESS);
 	/* set hi*/
 	if(val2 && (val1 < MAX_DIO)){ 
-        	__R30 = __R30 | ( 1 << val1);
-        }
+        	//__R30 = __R30 | ( 1 << val1);   //original line
+		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_HIGH);		        
+}
 
 	/* set low*/
         else{ 
-        	__R30 = __R30 & ~( 1 << val1);
+		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_LOW);		        
+        	//__R30 = __R30 & ~( 1 << val1);  //original line
         }
-	
+	int j;
+	//empty loop
+	for(j=0;j<500;j++);
+	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 	if(single_command)
 		send_ret_value(val2 ? 1 : 0);
 }
